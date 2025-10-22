@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Shares Outstanding Viewer</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assurant Shares Outstanding</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -19,47 +19,43 @@
     </style>
 </head>
 <body>
-    <h1 id="share-entity-name">Loading...</h1>
+    <h1 id="share-entity-name">Assurant</h1>
     <div class="share-info">
         <h2>Shares Outstanding Information</h2>
         <p>Maximum Shares Outstanding: <span id="share-max-value"></span> in fiscal year <span id="share-max-fy"></span></p>
         <p>Minimum Shares Outstanding: <span id="share-min-value"></span> in fiscal year <span id="share-min-fy"></span></p>
     </div>
-
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             async function fetchData(CIK = "0001267238") {
-                const secUrl = `https://data.sec.gov/api/xbrl/companyconcept/CIK${CIK}/dei/EntityCommonStockSharesOutstanding.json`;
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(secUrl)}`;
+                const proxyUrl = 'https://api.apify.com/v2/acts/your_api_pipe_proxy_function_name/run-sync-get-dataset-items?';
+                const apiUrl = `https://data.sec.gov/api/xbrl/companyconcept/CIK${CIK}/dei/EntityCommonStockSharesOutstanding.json`;
+                const userAgent = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3 YOUR_EMAIL_HERE`;
+                const response = await fetch(proxyUrl + new URLSearchParams({url: apiUrl}), {
+                    headers: { 'User-Agent': userAgent }
+                });
+                const data = await response.json();
+                const entityName = data.entityName;
+                const sharesData = data.units.shares.filter(item => parseInt(item.fy) > 2020 && item.val != null);
+                const max = sharesData.reduce((prev, current) => (prev.val > current.val) ? prev : current);
+                const min = sharesData.reduce((prev, current) => (prev.val < current.val) ? prev : current);
 
-                try {
-                    const response = await fetch(proxyUrl);
-                    const data = await response.json();
+                const outputData = {
+                    entityName: entityName,
+                    max: { val: max.val, fy: max.fy },
+                    min: { val: min.val, fy: min.fy }
+                };
 
-                    const sharesData = data.units.shares.filter(item => parseInt(item.fy) > 2020 && item.val != null);
-
-                    if (sharesData.length === 0) {
-                        throw new Error("No data available after 2020.");
-                    }
-
-                    const max = sharesData.reduce((a, b) => a.val > b.val ? a : b);
-                    const min = sharesData.reduce((a, b) => a.val < b.val ? a : b);
-
-                    const name = data.entityName || "Unknown Company";
-                    document.getElementById("share-entity-name").innerText = name;
-                    document.getElementById("share-max-value").innerText = max.val.toLocaleString();
-                    document.getElementById("share-max-fy").innerText = max.fy;
-                    document.getElementById("share-min-value").innerText = min.val.toLocaleString();
-                    document.getElementById("share-min-fy").innerText = min.fy;
-                    document.title = `${name} Shares Outstanding`;
-                } catch (err) {
-                    document.getElementById("share-entity-name").innerText = "Error loading data";
-                    console.error("Failed to fetch data:", err);
-                }
+                document.getElementById('share-entity-name').innerText = outputData.entityName;
+                document.getElementById('share-max-value').innerText = outputData.max.val;
+                document.getElementById('share-max-fy').innerText = outputData.max.fy;
+                document.getElementById('share-min-value').innerText = outputData.min.val;
+                document.getElementById('share-min-fy').innerText = outputData.min.fy;
+                document.title = `${outputData.entityName} Shares Outstanding`;
             }
 
             const urlParams = new URLSearchParams(window.location.search);
-            const CIK = urlParams.get("CIK") || "0001267238"; // Assurant default
+            const CIK = urlParams.get('CIK');
             fetchData(CIK);
         });
     </script>
